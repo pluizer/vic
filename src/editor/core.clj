@@ -80,3 +80,86 @@
     (for [s (subvec buffer from (+ from h))]
       (do (t/put-string term s)
           (next-line)))))
+
+;;;;;;;;;;;;;;;;;;;;
+;; Virtual DOM
+;;;;;;;;;;;;;;;;;;;;
+
+;; Compiling
+
+(defn element
+  [args children id]
+  (let [el
+        (assoc
+         (apply (fn
+                  ([tag options string]
+                   {:tag tag :options options :string string})
+                  ([tag extra]
+                   {:tag tag
+                    (if (string? extra)
+                      :string :options) extra}) 
+                  ([tag]
+                   {:tag tag})) args)
+         ;; new hash needed when arguments, postion and number of children
+         :hash (hash [args id (count children)]))] 
+    (if (empty? children) el (assoc el :children children))))
+
+(defn coll-not-map?
+  [x]
+  (and (coll? x)
+       (not (map? x))))
+
+(defn -make-vector-optional
+  "[[a] [b] [[c] [d]] [e]] -> [[a] [b] [c] [d] [e]]"
+  [v]
+  (loop [v v r []]
+    (let [current (first v)]
+      (if current
+        (recur (next v)
+               (if (coll-not-map? (first current))
+                 (apply conj r current)
+                 (conj r current)))
+        r))))
+
+(defn compile-form
+  ([v c id]
+   (loop [v  v
+          id id
+          r  []]
+     (let [f (first v)]
+       (cond
+         ;; form ends with a multiple or a vector of child forms
+         (coll-not-map? f)
+         ;; let [a] [b] be the same as [[a] [b]]
+         (element r (map-indexed #(compile-form %2 (inc c) (str id "." c ":" %1)) (-make-vector-optional v)) id)
+         ;; form ends with zero children
+         (empty? v)
+         (element r [] id)
+         ;; else keep gathering arguments
+         :else
+         (recur (rest v) id (conj r f))))))
+  ([v] (compile-form v 0 "id0")))
+
+;; Diffing
+
+(defn -elements-1
+  [cform parent]
+  (let [pair {:k (:hash cform) :v (assoc cform
+                                         :children (map :hash (:children cform))
+                                         :parent parent)}]
+    [pair (map #(-elements-1 %  (:hash cform)) (:children cform))]))
+
+(defn elements
+  [cform]
+  "Returns a map of elements grouped by there hashes."
+  (into {}
+        (map (fn [{k :k v :v}] [k v])
+             (flatten  (-elements-1 cform :root)))))
+
+(defn diff
+  [new-elements old-elements]
+  (let [new (remove #(get old-elements %) (keys new-elements))
+        old (remove #(get new-elements %) (keys old-elements))]
+    {:new new
+     :old old
+     :dirty (into #{} (remove nil? (map #(:parent (get old-elements %)) (apply conj new old))))}))
