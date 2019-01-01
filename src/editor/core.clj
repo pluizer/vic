@@ -110,8 +110,8 @@
        (not (map? x))))
 
 (defn -make-vector-optional
-  "[[a] [b] [[c] [d]] [e]] -> [[a] [b] [c] [d] [e]]"
   [v]
+  "[[a] [b] [[c] [d]] [e]] -> [[a] [b] [c] [d] [e]]"
   (loop [v v r []]
     (let [current (first v)]
       (if current
@@ -138,7 +138,9 @@
          ;; else keep gathering arguments
          :else
          (recur (rest v) id (conj r f))))))
-  ([v] (compile-form v 0 "id0")))
+  ([v]
+   "Converts a tree of elements into element objects {:tag :hash [:options :children]}"
+   (compile-form v 0 "id0")))
 
 ;; Diffing
 
@@ -158,6 +160,8 @@
 
 (defn diff
   [new-elements old-elements]
+  "Compares two lists of elements and sorts out those elements that are
+   new, old or dirty (an old element with different options)"
   (let [new (remove #(get old-elements %) (keys new-elements))
         old (remove #(get new-elements %) (keys old-elements))]
     {:new new
