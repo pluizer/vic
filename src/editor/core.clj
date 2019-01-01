@@ -163,3 +163,43 @@
     {:new new
      :old old
      :dirty (into #{} (remove nil? (map #(:parent (get old-elements %)) (apply conj new old))))}))
+
+;;
+;; UI Todo
+;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Div
+;;;; Position: center, left, right, top, bottom
+;;;; Style: border
+;; Labels
+;;;; Style: bold etc.
+;; Buttons
+;; Grids
+;; Input
+;; Buffer
+
+(defn draw-rect [term color x y w h]
+  (t/set-fg-color term (or color :white))
+  (let [line (apply str (take (- w 2) (repeat \─)))
+        x2   (+ x w -1)
+        y2   (+ y h -1)]
+    (t/put-string term line (+ x 1) y)
+    (doall (dotimes [n (- h 2)]
+             (t/put-character term \│ x (+ n 1))
+             (t/put-character term \│ x2 (+ n 1))))
+    (t/put-string term line (+ x 1) y2)
+    ;; corners
+    (t/put-character term \┌ x y)
+    (t/put-character term \└ x y2)
+    (t/put-character term \┐ x2 y)
+    (t/put-character term \┘ x2 y2)))
+
+(defn render-div [style context]
+  (let [{border?      :border?
+         border-color :border-color} style
+        {term      :term
+         [x y w h] :coor}            context]
+    (if border? (draw-rect term border-color x y w h))))
+
+
+
